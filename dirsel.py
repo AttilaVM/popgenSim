@@ -3,14 +3,14 @@
 import os
 import sys
 import random
-from threading import Thread
-import threading
+from multiprocessing import Process, Queue
+import multiprocessing
 import time
 
-try:
-    import Queue
-except:
-    import queue as Queue
+# try:
+#     import Queue
+# except:
+#     import queue as Queue
 
 # Parameters
 viability = {"AA": 0.6, "Aa": 0.6, "aa": 0.3}
@@ -20,8 +20,8 @@ tests = 200
 popLimit = 1000
 minProgeny = 0
 maxProgeny = 1
-threadNum = 8
-nice = 20
+threadNum = 2  # multiprocessing.cpu_count()
+nice = -20
 
 
 def cliInterpeter():
@@ -176,19 +176,17 @@ os.nice(nice)
 startTime = time.time()
 stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
 
-survivedNumQ = Queue.Queue()
+survivedNumQ = Queue()
 trial = 0
 while trial < tests:
-    t = Thread(target=simulation, args=(trial,))
-    t.start()
+    p = Process(target=simulation, args=(trial,))
+    p.start()
     # print(threading.activeCount())
-    while threading.activeCount() == threadNum:
+    while multiprocessing.active_children() == threadNum:
         time.sleep(0.01)
 
     trial += 1
 
-while threading.activeCount() != 1:
-    # print(threading.activeCount())
-    time.sleep(0.1)
+p.join()
 
 print("Elapsed time: " + str(time.time() - startTime))
