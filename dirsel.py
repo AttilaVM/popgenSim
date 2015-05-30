@@ -1,16 +1,38 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import random
+from threading import Thread
+import threading
+import time
+
+try:
+    import Queue
+except:
+    import queue as Queue
 
 # Parameters
 viability = {"AA": 0.6, "Aa": 0.6, "aa": 0.3}
 fertility = {"AA": 0.6, "Aa": 0.6, "aa": 0.3}
 cycles = 20
-tests = 60
+tests = 200
 popLimit = 1000
 minProgeny = 0
 maxProgeny = 1
+threadNum = 8
+nice = 20
+
+
+def cliInterpeter():
+    global threadNum
+
+    i = 1
+    while i < len(sys.argv):
+        if sys.argv[i] == "-t":
+            threadNum = sys.argv[i+1]
+
+        i += 1
 
 
 def popInit(number, MODE):
@@ -43,8 +65,7 @@ def popInit(number, MODE):
     return populationList
 
 
-def theUnforgivingWorld(MODE):
-    global popultionList
+def theUnforgivingWorld(popultionList, MODE):
     global popLimit
     global fertility
     global viability
@@ -71,8 +92,7 @@ def theUnforgivingWorld(MODE):
         i += 1
 
 
-def theWonderOfLife(matches):
-    global popultionList
+def theWonderOfLife(popultionList, matches):
     global popLimit
     global fertility
     global maxProgeny
@@ -95,9 +115,8 @@ def theWonderOfLife(matches):
         i += 1
 
 
-def analyzer():
+def analyzer(popultionList):
     global stats
-    global popultionList
 
     # Purge stats
     stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
@@ -115,9 +134,7 @@ def analyzer():
     stats["Na"] = 2*stats["Naa"]+stats["NAa"]
 
 
-def matchmaker():
-    global popultionList
-
+def matchmaker(popultionList):
     matches = []
     indices = list(range(0, len(popultionList)))
     while len(indices) > 1:
@@ -132,29 +149,46 @@ def matchmaker():
     return matches
 
 
-popultionList = popInit(1000, "mutation")
-
-stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
-
-survivedNum = 0
-trial = 0
-while trial < tests:
+def simulation(threadNumber):
+    global survivedNumQ
+    stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
     popultionList = popInit(1000, "mutation")
     c = 0
     while c < cycles:
-        theUnforgivingWorld("env")
-        theWonderOfLife(matchmaker())
-        analyzer()
-        print(c)
+        theUnforgivingWorld(popultionList, "env")
+        theWonderOfLife(popultionList, matchmaker(popultionList))
+        analyzer(popultionList)
+        # print(c)
         c += 1
 
     if stats["NA"] > 0:
-        survivedNum += 1
+        survivedNumQ.put(1)
         print(stats)
-    print(stats["Npop"])
+    # print(stats["Npop"])
     stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
     popultionList = []
-    print(trial)
+    # print("Thread number: " + str(threadNumber))
+
+
+cliInterpeter()
+print(threadNum)
+os.nice(nice)
+startTime = time.time()
+stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
+
+survivedNumQ = Queue.Queue()
+trial = 0
+while trial < tests:
+    t = Thread(target=simulation, args=(trial,))
+    t.start()
+    # print(threading.activeCount())
+    while threading.activeCount() == threadNum:
+        time.sleep(0.01)
+
     trial += 1
 
-print(survivedNum/float(tests))
+while threading.activeCount() != 1:
+    # print(threading.activeCount())
+    time.sleep(0.1)
+
+print("Elapsed time: " + str(time.time() - startTime))
