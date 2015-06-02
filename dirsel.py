@@ -21,7 +21,7 @@ popLimit = 1000
 minProgeny = 0
 maxProgeny = 1
 threadNum = 2  # multiprocessing.cpu_count()
-nice = -20
+nice = 0
 
 
 def cliInterpeter():
@@ -170,23 +170,31 @@ def simulation(threadNumber):
     # print("Thread number: " + str(threadNumber))
 
 
-cliInterpeter()
-print(threadNum)
-os.nice(nice)
-startTime = time.time()
+def Main():
+    cliInterpeter()
+    print(threadNum)
+    os.nice(nice)
+    startTime = time.time()
+
+    trial = 0
+    while trial < tests:
+        p = Process(target=simulation, args=(trial,))
+        p.start()
+        while multiprocessing.active_children() == threadNum:
+            time.sleep(0.01)
+
+        trial += 1
+
+    p.join()
+
+    while not survivedNumQ.empty():
+        print(survivedNumQ.get())
+    # print(survivedNumQ.get())
+    print("Elapsed time: " + str(time.time() - startTime))
+
+
 stats = {"Npop": 0, "NAA": 0, "NAa": 0, "Naa": 0, "NA": 0, "Na": 0}
-
 survivedNumQ = Queue()
-trial = 0
-while trial < tests:
-    p = Process(target=simulation, args=(trial,))
-    p.start()
-    # print(threading.activeCount())
-    while multiprocessing.active_children() == threadNum:
-        time.sleep(0.01)
 
-    trial += 1
-
-p.join()
-
-print("Elapsed time: " + str(time.time() - startTime))
+if __name__ == "__main__":
+    Main()
